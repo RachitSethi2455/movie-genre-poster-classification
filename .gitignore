@@ -1,0 +1,6 @@
+*.zip
+*.pth
+*.pt
+four_genre_posters_split/
+.ipynb_checkpoints/
+__pycache__/
