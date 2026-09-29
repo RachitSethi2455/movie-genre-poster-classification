@@ -4,7 +4,7 @@ Classifies a movie poster into one of four genres (**Action, Comedy, Horror, Rom
 
 ## Approach
 
-- **Data** – poster images in `train / val / test` folders loaded with `ImageFolder`. The test set has 200 images.
+- **Data** – [Four-Genre Movie Poster Images](https://www.kaggle.com/datasets/zulkarnainsaurav/four-genre-movie-poster-images) (Kaggle, Apache 2.0): 1,325 real movie posters scraped from IMDB and hand-picked to represent one genre each (Action 337, Comedy 321, Horror 398, Romance 269). Split 70/15/15 into `train / val / test` folders (200 test images) and loaded with `ImageFolder`.
 - **Preprocessing** – resize to 224×224 and apply ImageNet normalization. Training-time augmentation: random horizontal flip, ±10° rotation and colour jitter.
 - **Transfer learning** – freeze the pretrained backbone and replace the final classification layer with a 4-class head.
 - **Backbones compared** – ResNet18, ResNet50, DenseNet121, VGG16.
@@ -44,7 +44,7 @@ pip install -r requirements.txt
 jupyter notebook movie_genre_classification.ipynb
 ```
 
-The notebook expects the dataset as `four_genre_posters_split.zip` containing `train/`, `val/` and `test/` subfolders with one folder per genre. The dataset and trained weights (`.pth`) aren't included in this repo.
+Download the `four_genre_posters` folder from the Kaggle dataset linked above and split it 70/15/15. The notebook expects the result as `four_genre_posters_split.zip` containing `train/`, `val/` and `test/` subfolders with one folder per genre. The dataset and trained weights (`.pth`) aren't included in this repo.
 
 ## Next steps
 
