@@ -3,8 +3,11 @@ data/
 checkpoints/
 *.zip
 *.pth
+!models/poster_genre.pth
 *.pt
 
 .ipynb_checkpoints/
 __pycache__/
 .venv/
+.pytest_cache/
+.gradio/

@@ -1,0 +1,13 @@
+{
+  "backbone": "ResNet50",
+  "fine_tuned": true,
+  "classes": [
+    "Action",
+    "Comedy",
+    "Horror",
+    "Romance"
+  ],
+  "split_seed": 0,
+  "test_acc_split0": 69.34673366834171,
+  "test_acc_mean_5_splits": 69.04522613065326
+}
