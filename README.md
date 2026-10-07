@@ -103,3 +103,7 @@ predict_poster("path/to/poster.jpg")
 ## Tech
 
 Python · PyTorch · torchvision · scikit-learn · pandas · seaborn · matplotlib · kagglehub
+
+## License
+
+Code is released under the [MIT License](LICENSE). The dataset keeps its own Kaggle license.
