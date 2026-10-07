@@ -1,6 +1,10 @@
+# Data (downloaded automatically from Kaggle by the notebook) and trained weights
+data/
+checkpoints/
 *.zip
 *.pth
 *.pt
-four_genre_posters_split/
+
 .ipynb_checkpoints/
 __pycache__/
+.venv/
