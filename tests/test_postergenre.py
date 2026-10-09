@@ -112,3 +112,20 @@ def test_gradcam_heatmaps_are_normalised_and_hooks_removed():
     assert all(p.grad is None for p in model.parameters() if not p.requires_grad)
     blended = overlay(Image.new("RGB", (224, 224), "white"), heat[0])
     assert blended.shape == (224, 224, 3) and blended.dtype == np.uint8
+
+
+def test_imdb_genres_parses_and_filters(tmp_path):
+    import gzip
+
+    from postergenre.imdb import imdb_genres
+
+    rows = ["tconst\ttitleType\tprimaryTitle\toriginalTitle\tisAdult\tstartYear\tendYear\truntimeMinutes\tgenres",
+            "tt0000001\tmovie\tA \"quoted\" title\tA\t0\t2020\t\\N\t90\tComedy,Romance",
+            "tt0000002\tmovie\tB\tB\t0\t2021\t\\N\t95\tHorror",
+            "tt0000003\tmovie\tC\tC\t0\t2022\t\\N\t99\t\\N",
+            "tt0000004\tmovie\tD\tD\t0\t2023\t\\N\t80\tAction"]
+    path = tmp_path / "title.basics.tsv.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write("\n".join(rows) + "\n")
+    got = imdb_genres(["tt0000001", "tt0000002", "tt0000003", "tt9999999"], path=path, chunksize=2)
+    assert got == {"tt0000001": {"Comedy", "Romance"}, "tt0000002": {"Horror"}}  # missing genres / unknown IDs dropped

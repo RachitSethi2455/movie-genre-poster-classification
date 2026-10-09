@@ -19,6 +19,7 @@ Can a CNN tell a movie's genre from its poster alone? This project classifies po
 - **Regularized fine-tuning.** Discriminative learning rates, AdamW weight decay, label smoothing, stronger augmentation and early stopping.
 - **Fast and light.** Posters are decoded once and cached in memory, so the GPU stays busy. Checkpoints store only the trained layers.
 - **Explainability.** Grad-CAM shows what the CNN looks at, and a confidence analysis shows when to trust it: at ≥ 80% confidence it is right 91% of the time.
+- **Error analysis against IMDb.** Half of the model's "mistakes" predict a genre the film really has on IMDb. Counting those, accuracy goes from 69% to 84%.
 - **Engineering.** Shared code lives in the [`postergenre/`](postergenre) package, which the notebook, the [demo app](app.py) and the offline [unit tests](tests) all use. CI runs the tests on every push.
 
 ## Results
@@ -76,11 +77,23 @@ Regularization fixed the overfitting of the earlier version, cutting training ac
 
 - **The model reads the image, not the title.** 60–74% of the attention falls in the middle half of the poster, against 50% for a uniform map. Action is the most centred (74%); Comedy and Horror draw more on the top and bottom, where titles and taglines sit.
 - On individual posters it keys on **couples' faces** for Romance, **dark isolated figures** for Horror, the **armed hero** for Action and **groups of characters** for Comedy.
-- Its most confident mistakes are mostly *Romance* posters predicted as *Comedy*, often romantic comedies such as *The Wrong Missy* and *You People*. For films like these, the single-genre label is the real problem.
+- Its most confident mistakes are mostly *Romance* posters predicted as *Comedy*, often romantic comedies such as *The Wrong Missy* and *You People*. The IMDb check below shows how common this is.
 
 **Confidence:** the top probability is a useful signal. It is calibrated (ECE 0.028), and when the model reports **at least 80% confidence it is right 91% of the time**, covering about a quarter of posters. Below 40% it is right only 20% of the time, which is close to random.
 
 ![Confidence analysis](assets/confidence.png)
+
+### Are the mistakes really mistakes?
+
+Each poster file is named by its IMDb ID, and IMDb lists **all** of a film's genres, while this dataset files each film under exactly one. Joining the two (using IMDb's [non-commercial dataset](https://developer.imdb.com/non-commercial-datasets/), downloaded on demand and not committed):
+
+- The dataset labels are reliable: **97%** match one of the film's IMDb genres. But **24% of the films belong to two or more** of the four genres, and **52% of the "Romance" films are also Comedies**.
+- **50% of the model's errors predict a genre the film really has** on IMDb, compared with 19% for a random wrong guess.
+- Counting any of a film's IMDb genres as correct, accuracy rises from **68.8% to 84.4%** on the same test posters.
+
+![IMDb genre overlap and model mistakes](assets/imdb_genres.png)
+
+*Information courtesy of IMDb (https://www.imdb.com). Used with permission.*
 
 ## Demo app
 
@@ -114,11 +127,12 @@ postergenre/
   models.py    backbones + new head, freezing/unfreezing, lightweight checkpoints
   train.py     training loop (best-val-loss checkpoint, early stopping), prediction
   gradcam.py   Grad-CAM heatmaps and overlays
+  imdb.py      IMDb genre lookup (streams IMDb's title.basics dataset)
 models/        demo checkpoint + model card (written by the notebook)
 tests/         offline unit tests
 app.py         Gradio demo
 movie_genre_classification.ipynb   training and evaluation (5 splits)
-explain_predictions.ipynb          Grad-CAM and confidence analysis of the demo model
+explain_predictions.ipynb          Grad-CAM, confidence and IMDb error analysis of the demo model
 ```
 
 ## Dataset
@@ -127,7 +141,7 @@ explain_predictions.ipynb          Grad-CAM and confidence analysis of the demo 
 
 ## Next steps
 
-- **Multi-label genres.** Real movies are often several genres at once (e.g. romantic comedy), which also explains the Comedy↔Romance confusion.
+- **Multi-label genres.** A quarter of these films have two or more of the four genres on IMDb, and half the model's errors are real secondary genres. IMDb's genre lists provide multi-label targets for free.
 - **Poster-specific signals**, such as OCR'd title text, colour statistics and face counts, alongside the CNN features.
 - More data. With about 900 training images, the model is limited by data rather than capacity.
 
