@@ -1,4 +1,4 @@
-"""Gradio demo: upload a movie poster and get genre probabilities.
+"""Gradio demo: upload a movie poster, get genre probabilities and a Grad-CAM heatmap of what drove them.
 
 Run locally with ``python app.py`` after the notebook has saved ``models/``. On first start, torchvision
 downloads the pretrained backbone weights. Only the trained layers are stored in this repo.
@@ -8,10 +8,13 @@ from functools import lru_cache
 from pathlib import Path
 
 import gradio as gr
+import numpy as np
 import torch
+from PIL import Image
 
 from postergenre.data import eval_tf
-from postergenre.models import build_model, load_trained_state
+from postergenre.gradcam import GradCAM, overlay
+from postergenre.models import LAST_BLOCK, build_model, load_trained_state
 
 MODEL_DIR = Path(__file__).parent / "models"
 card = json.loads((MODEL_DIR / "model_card.json").read_text(encoding="utf-8"))
@@ -32,16 +35,30 @@ def classify(image, model=None):
     return {genre: float(p) for genre, p in zip(card["classes"], probs)}
 
 
+def explain(image, model=None, max_side=512):
+    """PIL image -> ({genre: probability}, Grad-CAM overlay for the top genre as an RGB array)."""
+    model = model or load_model()
+    image = image.convert("RGB")
+    image.thumbnail((max_side, max_side))  # keep the overlay light for large uploads
+    with GradCAM(model, model.get_submodule(LAST_BLOCK[card["backbone"]])) as cam:
+        heat, probs = cam(eval_tf(image).unsqueeze(0))
+    # The model sees a 224×224 square; stretch the heatmap back to the poster's own shape.
+    heat = np.asarray(Image.fromarray(np.uint8(255 * heat[0])).resize(image.size, Image.BILINEAR)) / 255
+    return {genre: float(p) for genre, p in zip(card["classes"], probs[0])}, overlay(image, heat)
+
+
 demo = gr.Interface(
-    fn=classify,
+    fn=explain,
     inputs=gr.Image(type="pil", label="Movie poster"),
-    outputs=gr.Label(num_top_classes=4, label="Predicted genre"),
+    outputs=[gr.Label(num_top_classes=4, label="Predicted genre"),
+             gr.Image(label="What the model looked at (Grad-CAM: red = strongest evidence for the top genre)")],
     title="Movie genre from poster",
     description=(
         f"{card['backbone']}{' (fine-tuned)' if card['fine_tuned'] else ' (frozen backbone + linear head)'} "
         f"trained on 1,325 IMDB posters. It averages about {card['test_acc_mean_5_splits']:.0f}% test accuracy "
         "across 5 splits, where random guessing would score 25%. "
-        "It only knows Action, Comedy, Horror and Romance."
+        "It only knows Action, Comedy, Horror and Romance. "
+        "The heatmap shows which parts of your poster drove the top prediction."
     ),
     flagging_mode="never",
 )

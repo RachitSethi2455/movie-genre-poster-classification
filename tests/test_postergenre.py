@@ -92,3 +92,23 @@ def test_saved_demo_model_and_app():
     model = app.load_model(pretrained=False)  # random backbone; checks that the checkpoint matches the architecture
     probs = app.classify(Image.new("RGB", (300, 450), "red"), model=model)
     assert list(probs) == card["classes"] and abs(sum(probs.values()) - 1) < 1e-5
+    probs2, heat = app.explain(Image.new("RGB", (300, 450), "red"), model=model)
+    assert probs2 == pytest.approx(probs, abs=1e-5)
+    assert heat.shape == (450, 300, 3) and heat.dtype == np.uint8  # overlay keeps the poster's own shape
+
+
+def test_gradcam_heatmaps_are_normalised_and_hooks_removed():
+    from postergenre.gradcam import GradCAM, overlay
+
+    torch.manual_seed(0)
+    model = build_model("ResNet18", pretrained=False).eval()
+    x = torch.randn(2, 3, 224, 224)
+    with GradCAM(model, model.layer4) as cam:
+        heat, probs = cam(x)
+    assert heat.shape == (2, 224, 224) and np.isfinite(heat).all()
+    assert heat.min() >= 0 and heat.max() <= 1 + 1e-6
+    assert probs.shape == (2, 4) and np.allclose(probs.sum(1), 1, atol=1e-5)
+    assert not model.layer4._forward_hooks  # context manager cleaned up
+    assert all(p.grad is None for p in model.parameters() if not p.requires_grad)
+    blended = overlay(Image.new("RGB", (224, 224), "white"), heat[0])
+    assert blended.shape == (224, 224, 3) and blended.dtype == np.uint8

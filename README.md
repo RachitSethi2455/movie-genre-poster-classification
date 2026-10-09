@@ -18,6 +18,7 @@ Can a CNN tell a movie's genre from its poster alone? This project classifies po
 - **Fair comparison.** All four backbones get identical frozen-feature training, with only a new linear head trained.
 - **Regularized fine-tuning.** Discriminative learning rates, AdamW weight decay, label smoothing, stronger augmentation and early stopping.
 - **Fast and light.** Posters are decoded once and cached in memory, so the GPU stays busy. Checkpoints store only the trained layers.
+- **Explainability.** Grad-CAM shows what the CNN looks at, and a confidence analysis shows when to trust it: at ≥ 80% confidence it is right 91% of the time.
 - **Engineering.** Shared code lives in the [`postergenre/`](postergenre) package, which the notebook, the [demo app](app.py) and the offline [unit tests](tests) all use. CI runs the tests on every push.
 
 ## Results
@@ -65,16 +66,32 @@ Regularization fixed the overfitting of the earlier version, cutting training ac
 - **Bigger isn't better.** VGG16 has 6× more parameters than ResNet50 but ranks last on test, and its validation loss stops improving within the first 5 epochs on every split.
 - **The dataset is the bottleneck, not the model.** Fine-tuning brings no measurable gain. More data or richer labels would help more than more training.
 
+## What does the model look at, and when can you trust it?
+
+[`explain_predictions.ipynb`](explain_predictions.ipynb) explains the demo model on its held-out test posters, with no retraining.
+
+**Grad-CAM** highlights the poster regions that drive each prediction. The notebook shows heatmaps on individual test posters. Below are the **averages per genre**, which contain no poster content:
+
+![Average Grad-CAM per genre](assets/gradcam_mean.png)
+
+- **The model reads the image, not the title.** 60–74% of the attention falls in the middle half of the poster, against 50% for a uniform map. Action is the most centred (74%); Comedy and Horror draw more on the top and bottom, where titles and taglines sit.
+- On individual posters it keys on **couples' faces** for Romance, **dark isolated figures** for Horror, the **armed hero** for Action and **groups of characters** for Comedy.
+- Its most confident mistakes are mostly *Romance* posters predicted as *Comedy*, often romantic comedies such as *The Wrong Missy* and *You People*. For films like these, the single-genre label is the real problem.
+
+**Confidence:** the top probability is a useful signal. It is calibrated (ECE 0.028), and when the model reports **at least 80% confidence it is right 91% of the time**, covering about a quarter of posters. Below 40% it is right only 20% of the time, which is close to random.
+
+![Confidence analysis](assets/confidence.png)
+
 ## Demo app
 
-[`app.py`](app.py) is a [Gradio](https://gradio.app) app. Upload a poster and it returns the probability of each genre.
+[`app.py`](app.py) is a [Gradio](https://gradio.app) app. Upload a poster and it returns the probability of each genre, plus a **Grad-CAM heatmap** of the parts of your poster that drove the top prediction.
 
 ```bash
 pip install -r requirements.txt
 python app.py          # opens http://127.0.0.1:7860
 ```
 
-The demo model is the final configuration trained on split 0 (69.3% test accuracy on that split). [`models/poster_genre.pth`](models) stores only the fine-tuned layers in fp16 (30 MB). The frozen ResNet50 weights are downloaded from torchvision on first start.
+The demo model is the final configuration trained on split 0, with about 69% test accuracy on that split. [`models/poster_genre.pth`](models) stores only the fine-tuned layers in fp16 (30 MB). The frozen ResNet50 weights are downloaded from torchvision on first start.
 
 ## Run the notebook
 
@@ -96,10 +113,12 @@ postergenre/
   data.py      Kaggle download, stratified splits, in-memory image cache, transforms
   models.py    backbones + new head, freezing/unfreezing, lightweight checkpoints
   train.py     training loop (best-val-loss checkpoint, early stopping), prediction
+  gradcam.py   Grad-CAM heatmaps and overlays
 models/        demo checkpoint + model card (written by the notebook)
 tests/         offline unit tests
 app.py         Gradio demo
-movie_genre_classification.ipynb
+movie_genre_classification.ipynb   training and evaluation (5 splits)
+explain_predictions.ipynb          Grad-CAM and confidence analysis of the demo model
 ```
 
 ## Dataset
